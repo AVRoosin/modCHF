@@ -2,7 +2,169 @@ Attribute VB_Name = "modCHF"
 Option Explicit
 Option Compare Text
 
-'last update 13.12.2016
+'last update 14.12.2016
+
+'Функция возвращает паспорт сотрудника свернутый в строку формата серия/номер/кем выдан/когда выдан
+'в случае чего можно будет добавить формат
+Public Function ReturnPersonalPasport(IdPersonal As Long, _
+                                    ByVal RS As ADODB.Recordset, _
+                                    QueryDate As Date, _
+                                    bs As IBusinessServer, _
+                                    Optional StyleFormat As Integer = 1) As String
+    Dim PasportString As String
+    Dim TempString As String, TempArray, TexpTempArray, CountTemp As Integer
+    TempArray = Array("serdoc", "numdoc", "whogive", "date_begin")
+    If StyleFormat = 1 Then
+        TexpTempArray = Array("серия", "номер", "кем выдан", "дата выдачи")
+    End If
+    CountTemp = 0
+    Do While UBound(TempArray) >= CountTemp
+        TempString = CastToString(GetInfoIdToValue(IdPersonal, "REC_Personal", "passportinternal", CastToString(TempArray(CountTemp)), QueryDate, bs), "")
+        If Not TempString = "" Then
+            PasportString = PasportString & " " & CastToString(TexpTempArray(CountTemp)) & " " & TempString
+        End If
+        CountTemp = CountTemp + 1
+    Loop
+    
+    If Not CastToString(PasportString, "") = "" Then
+        ReturnPersonalPasport = PasportString
+    End If
+End Function
+
+'------------------Функция возращает единичное значение по коду Chief, например, вернет Фамилия, Имя
+Public Function ReturnChiefCustomValue(ByVal RS As ADODB.Recordset, _
+                                    QueryDate As Date, _
+                                    bs As IBusinessServer, _
+                                    NameChief As String, _
+                                    ValueChief As String) As String
+    RS.MoveFirst
+    Do While Not RS.EOF
+        If Nvl(CastToString(RS("chief_code").Value), "") = CastToString(NameChief) Then
+            ReturnChiefCustomValue = CastToString(RS(ValueChief).Value)
+            RS.MoveLast
+            RS.MoveNext
+        Else
+            RS.MoveNext
+        End If
+    Loop
+End Function
+
+Public Function InformationEmployee(ByVal RS As ADODB.Recordset, QueryDate As Date, bs As IBusinessServer, TransmissionString As String, _
+                                    Optional idPers As Boolean = False, _
+                                    Optional Tabn As Boolean = False, _
+                                    Optional SurnameName As Boolean = False, _
+                                    Optional Name As Boolean = False, _
+                                    Optional Patronomyc As Boolean = False, _
+                                    Optional idShtat As Boolean = False, _
+                                    Optional ShtatCode As Boolean = False, _
+                                    Optional ShtatShorname As Boolean = False, _
+                                    Optional ShtatFullname As Boolean = False, _
+                                    Optional PodrFullname As Boolean = False, _
+                                    Optional ChiefFullname As Boolean = False) As String()
+    'перебираем рекордсет руководителей
+    Dim Masv() As String
+    Dim idPodr As Long, CountMasv As Integer
+    RS.MoveFirst
+    CountMasv = 0
+    Do While Not RS.EOF
+        If Nvl(CastToString(RS("chief_code").Value), "") = CastToString(TransmissionString) Then
+            If idPers = True Then
+                ReDim Preserve Masv(CountMasv)
+                Masv(CountMasv) = CastToString(RS("id_personal").Value, "")
+                CountMasv = CountMasv + 1
+            End If
+            If Tabn = True Then
+                ReDim Preserve Masv(CountMasv)
+                Masv(CountMasv) = CastToString(RS("tabn").Value, "")
+                CountMasv = CountMasv + 1
+            End If
+            If SurnameName = True Then
+                ReDim Preserve Masv(CountMasv)
+                Masv(CountMasv) = CastToString(RS("surname").Value, "")
+                CountMasv = CountMasv + 1
+            End If
+            If Name = True Then
+                ReDim Preserve Masv(CountMasv)
+                Masv(CountMasv) = CastToString(RS("name").Value, "")
+                CountMasv = CountMasv + 1
+            End If
+            If Patronomyc = True Then
+                ReDim Preserve Masv(CountMasv)
+                Masv(CountMasv) = CastToString(RS("patronymic").Value, "")
+                CountMasv = CountMasv + 1
+            End If
+            If idShtat = True Then
+                ReDim Preserve Masv(CountMasv)
+                Masv(CountMasv) = CastToString(RS("id_shtat").Value, "")
+                CountMasv = CountMasv + 1
+            End If
+            If ShtatCode = True Then
+                ReDim Preserve Masv(CountMasv)
+                Masv(CountMasv) = CastToString(RS("shtat_code").Value, "")
+                CountMasv = CountMasv + 1
+            End If
+            If ShtatShorname = True Then
+                ReDim Masv(CountMasv)
+                Masv(CountMasv) = CastToString(RS("shtat_shortname").Value, "")
+                CountMasv = CountMasv + 1
+            End If
+            If ShtatFullname = True Then
+                ReDim Preserve Masv(CountMasv)
+                Masv(CountMasv) = CastToString(GetInfoIdToValue(CastToLong(RS("id_shtat").Value), "REC_SHTAT", "fullname", "charval", QueryDate, bs))
+                CountMasv = CountMasv + 1
+            End If
+            If PodrFullname = True Then
+                ReDim Masv(CountMasv)
+                idPodr = CastToLong(GetInfoIdToValue(CastToLong(RS("id_shtat").Value), "REC_SHTAT", "parent_object", "intval", QueryDate, bs))
+                Masv(CountMasv) = CastToString(GetInfoIdToValue(CastToLong(idPodr), "REC_PODR", "fullname", "charval", QueryDate, bs))
+                CountMasv = CountMasv + 1
+            End If
+            If ChiefFullname = True Then
+                ReDim Preserve Masv(CountMasv)
+                Masv(CountMasv) = CastToString(RS("chief_fullname").Value, "")
+                CountMasv = CountMasv + 1
+            End If
+            Exit Do
+         End If
+        RS.MoveNext
+    Loop
+    InformationEmployee = Masv()
+End Function
+
+'Функция возвращает значение реквизита на момент времени
+Public Function RekvFirm(NameBookMark As String, _
+                        idFirm As Long, _
+                        ObjectName As String, _
+                        RekvName As String, _
+                        FieldName As String, _
+                        DateQuery As Date, _
+                        BsName As IBusinessServer, _
+                        Optional SettingName As String = "", _
+                        Optional ValueName As String = "") As Integer
+    Dim TextFirm As String
+    TextFirm = GetInfoIdToValue(idFirm, ObjectName, RekvName, FieldName, DateQuery, BsName, SettingName, ValueName) 'RekvFirmidFirm, "REC_FIRM", "OGRN", "charval", qDate, bs)
+    If Not Nvl(TextFirm, "") = "" Then
+        PutToBkm NameBookMark, TextFirm
+        RekvFirm = 1
+    Else
+        ActiveDocument.Bookmarks(NameBookMark).Select
+        Selection.Font.ColorIndex = wdRed
+        PutToBkm NameBookMark, CastToString("В карточке организации не заполнене реквизит" & NameBookMark)
+    End If
+End Function
+
+'----------Функция изменяет формат даты-----------------------------------
+Public Function MyFormatDate(ByVal d, Optional PrintMonth As Boolean = True, Optional PrintYear As Boolean = True) As String
+Dim Months
+Months = Array(0, "января", "февраля", "марта", "апреля", "мая", "июня", "июля", "августа", "сентября", "октября", "ноября", "декабря")
+If IsNull(d) Then
+    MyFormatDate = ""
+Else
+    MyFormatDate = IIf(Len(CastToString(Day(d))) = 1, CastToString(Day(d)), CastToString(Day(d))) & _
+                   IIf(PrintMonth, " " & Months(Month(d)), "") & _
+                   IIf(PrintYear, " " & CastToString(Year(d)) & " года", "")
+End If
+End Function
 
 '-----------Функция, приводящая две даты к текстовому формату------------
 'на вход подаются значения "дата начала" и "дата конца", в итоге выдаётся "с [дд] по [дд] [месяца] [гггг] года"
@@ -20,21 +182,21 @@ Public Function GetDatesPeriod(date_begin As Date, date_end As Date)
   'Заполняем "дату с" - день
   fromString = fromString & CastToString(Day(date_begin))
     'Проверяем, что командировка/отпуск заканчивается в том же месяце
-        If month(date_begin) <> month(date_end) Then
+        If Month(date_begin) <> Month(date_end) Then
             'Если месяц не тот же, добавляем его название в строку "дата с"
-            fromString = fromString & " " & Months(month(date_begin))
+            fromString = fromString & " " & Months(Month(date_begin))
         End If
     'Проверяем, что командировка/отпуск заканчивается в том же месяце
         If Year(date_begin) <> Year(date_end) Then
             'Если месяц тот же, добавляем его название в строку "дата с"
-            If month(date_begin) = month(date_end) Then
-                fromString = fromString & " " & Months(month(date_begin))
+            If Month(date_begin) = Month(date_end) Then
+                fromString = fromString & " " & Months(Month(date_begin))
             End If
             'Если год тот же, добавляем его в строку "дата с"
             fromString = fromString & " " & Year(date_begin) & " года"
         End If
         'Формируем строку "дата по" - всегда одинаково
-        toString = " по " & CastToString(Day(date_end)) & " " & Months(month(date_end)) & " " & Year(date_end) & " года"
+        toString = " по " & CastToString(Day(date_end)) & " " & Months(Month(date_end)) & " " & Year(date_end) & " года"
         'выводим результат
         GetDatesPeriod = fromString & toString
 '-----------------------------------------------------------------------------------
@@ -49,7 +211,7 @@ Public Function GetDateString(dateValue As Date)
   'объявляем массив названий месяцев и строковые переменные для хранения дат
   Dim Months() As String
   Months = Split("0,января,февраля,марта,апреля,мая,июня,июля,августа,сентября,октября,ноября,декабря", ",")
-  GetDateString = CastToString(DatePart("d", dateValue)) & " " & Months(month(dateValue)) & " " & Year(dateValue)
+  GetDateString = CastToString(DatePart("d", dateValue)) & " " & Months(Month(dateValue)) & " " & Year(dateValue)
 End Function
 
 'Функция снижает регистр первого символа строки
@@ -165,14 +327,14 @@ Public Function GetInfoIdToValue(ItemId As Long, ItemBsObject As String, ItemPar
 End Function
 '-----------------Получение ФИО Испонителя из  текущей учётной записи---------------
 Public Function GetExecutorFIO(qDate As Date, bs As IBusinessServer)
-    Dim surname As String, name As String, patronymic As String
+    Dim surname As String, Name As String, patronymic As String
     Dim user_id As Long
     user_id = bs.CurrentUserID
-    name = CastToString(GetInfoIdToValue(user_id, "SYS_Account", "main", "name", qDate, bs))
+    Name = CastToString(GetInfoIdToValue(user_id, "SYS_Account", "main", "name", qDate, bs))
     surname = CastToString(GetInfoIdToValue(user_id, "SYS_Account", "main", "surname", qDate, bs))
     patronymic = CastToString(GetInfoIdToValue(user_id, "SYS_Account", "main", "patronymic", qDate, bs))
-    If Not name = "" And Not surname = "" And Not patronymic = "" Then
-        GetExecutorFIO = MakeFIOShortCorrectly(surname, name, patronymic, 1, ffSurnameNP)
+    If Not Name = "" And Not surname = "" And Not patronymic = "" Then
+        GetExecutorFIO = MakeFIOShortCorrectly(surname, Name, patronymic, 1, ffSurnameNP)
     Else
         GetExecutorFIO = "В карточке учетной записи не указан исполнитель"
     End If
@@ -260,38 +422,38 @@ Public Function WritePersonalSex(sex As Boolean, Optional MaleString As String =
 End Function
 
 '-------------------Представление ФИО в правильном формате (а не как в сервисных функциях)-------------------
-Public Function MakeFIOShortCorrectly(surname As String, name As String, patronymic As String, Optional Padeg As Long = 1, Optional FIOFormat As FIOFormatEnum = ffSurnameNamePatronomic, Optional sotrSexIfNoPatronymic As String = "")
+Public Function MakeFIOShortCorrectly(surname As String, Name As String, patronymic As String, Optional Padeg As Long = 1, Optional FIOFormat As FIOFormatEnum = ffSurnameNamePatronomic, Optional sotrSexIfNoPatronymic As String = "")
 Dim FIO() As String
 Dim Result As String
 'если есть отчество
 If patronymic <> "" Then
-    Result = GetFIO_Padeg(surname, name, patronymic, ffSurnameNamePatronomic, Padeg)
+    Result = GetFIO_Padeg(surname, Name, patronymic, ffSurnameNamePatronomic, Padeg)
     Select Case FIOFormat
     Case ffNPSurname
         FIO = Split(Result, " ", -1)
-        MakeFIOShortCorrectly = Left(name, 1) & "." & Left(patronymic, 1) & ". " & FIO(0)
+        MakeFIOShortCorrectly = Left(Name, 1) & "." & Left(patronymic, 1) & ". " & FIO(0)
     Case ffSurnameNP
         FIO = Split(Result, " ", -1)
-        MakeFIOShortCorrectly = FIO(0) & " " & Left(name, 1) & "." & Left(patronymic, 1) & "."
+        MakeFIOShortCorrectly = FIO(0) & " " & Left(Name, 1) & "." & Left(patronymic, 1) & "."
     Case Else
         MakeFIOShortCorrectly = Result
     End Select
 Else
 'если нет отчества
-Result = GetFIO_Padeg(surname, name, "", ffSurnameNamePatronomic, Padeg)
+Result = GetFIO_Padeg(surname, Name, "", ffSurnameNamePatronomic, Padeg)
     If sotrSexIfNoPatronymic = "М" Then
-        Result = GetFIO_Padeg(surname, name, "Иванович", ffSurnameNamePatronomic, Padeg)
+        Result = GetFIO_Padeg(surname, Name, "Иванович", ffSurnameNamePatronomic, Padeg)
     End If
     If sotrSexIfNoPatronymic = "Ж" Then
-        Result = GetFIO_Padeg(surname, name, "Ивановна", ffSurnameNamePatronomic, Padeg)
+        Result = GetFIO_Padeg(surname, Name, "Ивановна", ffSurnameNamePatronomic, Padeg)
     End If
     Select Case FIOFormat
     Case ffNPSurname
         FIO = Split(Result, " ", -1)
-        MakeFIOShortCorrectly = Left(name, 1) & "." & FIO(0)
+        MakeFIOShortCorrectly = Left(Name, 1) & "." & FIO(0)
     Case ffSurnameNP
         FIO = Split(Result, " ", -1)
-        MakeFIOShortCorrectly = FIO(0) & " " & Left(name, 1) & "."
+        MakeFIOShortCorrectly = FIO(0) & " " & Left(Name, 1) & "."
     Case Else
         FIO = Split(Result, " ", -1)
         MakeFIOShortCorrectly = FIO(0) & " " & FIO(1)
@@ -308,7 +470,7 @@ FIO = Split(InitialFIO, SplitStr, -1)
 If UBound(FIO) = 0 Then
     MakeFIOShortOneString = "Введено некорректное ФИО"
 Else
-    MakeFIOShortOneString = MakeFIOShortCorrectly(FIO(0), FIO(1), nvl(FIO(2), ""), Padeg, FIOFormat)
+    MakeFIOShortOneString = MakeFIOShortCorrectly(FIO(0), FIO(1), Nvl(FIO(2), ""), Padeg, FIOFormat)
 End If
 
 End Function
@@ -338,7 +500,7 @@ Public Function Replace_DirectorPodr(NumbOption As Integer, NameOption As String
     'Director_intval=id_сотрудника;
     'Podr_Director_ExecPost_Shtat_Shortname='Должность сотрудника';';
     
-    If Not nvl(NameOption, "") = "" Then
+    If Not Nvl(NameOption, "") = "" Then
         Dim prm_p As New SKGENERALLib.Params
         prm_p.LoadFromString CastToString(NameOption) '
         Dim WrdArray1() As String
