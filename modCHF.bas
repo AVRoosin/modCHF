@@ -2,8 +2,54 @@ Attribute VB_Name = "modCHF"
 Option Explicit
 Option Compare Text
 
-'last update 14.12.2016
-'last update 14.12.2016 test
+'last update 15.12.2016
+
+'Функция ничего не возвращает. Она пробегает по Закладкам, которые определены для Руководителей которые должны
+'подписывать документ
+Public Function FieldRecordingChiefs(ByVal FRC_RS As ADODB.Recordset, _
+                                    FRC_QueryDate As Date, _
+                                    FRC_bs As IBusinessServer)
+    Dim NameFieldChief As String, ValueFieldChief As String, WriteString As String
+    Dim TempString As String
+    Dim Set1 As Bookmark
+    'берем все закладки страницы
+    ActiveDocument.Range.InsertAfter (vbCrLf)
+    For Each Set1 In ActiveDocument.Bookmarks
+        'если закладка существует
+        If ActiveDocument.Bookmarks.Exists(Set1.Name) = True Then
+            'извлекаем имя кода
+            NameFieldChief = DeleteCharacters(Set1.Name, True)
+            'извлекаем имя поля
+            ValueFieldChief = DeleteCharacters(Set1.Name, False)
+            'получаем результат
+            WriteString = CastToString(ReturnChiefCustomValue(FRC_RS, FRC_QueryDate, FRC_bs, NameFieldChief, ValueFieldChief))
+            If Not CastToString(WriteString, "") = "" Then
+                PutToBkm CastToString(Set1.Name), CastToString(WriteString)
+            Else
+                PutToBkm CastToString(Set1.Name), CastToString("Некорректный параметр")
+            End If
+        End If
+    Next
+End Function
+
+'Функция возвращает английскую подстроку, либо русскую подстроку
+'используется для автоматической замены закладок рекордсета Chief
+Public Function DeleteCharacters(Stxt As String, Optional LanguageEnglishCharacters As Boolean = True) As String
+    Dim i As Integer, a As String
+    For i = Len(Stxt) To 1 Step -1
+        a = Mid(Stxt, i, 1)
+        If LanguageEnglishCharacters = True Then
+            'English characters
+            If a Like "[a-zA-Z0-9_]" Then Stxt = Replace(Stxt, a, "")
+        ElseIf LanguageEnglishCharacters = False Then
+            'Russian characters
+            If a Like "[А-яЁё]" Then Stxt = Replace(Stxt, a, "")
+        End If
+    Next
+    
+    'return rus/eng string
+    DeleteCharacters = Trim(Stxt)
+End Function
 
 'Функция возвращает паспорт сотрудника свернутый в строку формата серия/номер/кем выдан/когда выдан
 'в случае чего можно будет добавить формат
@@ -37,11 +83,33 @@ Public Function ReturnChiefCustomValue(ByVal RS As ADODB.Recordset, _
                                     QueryDate As Date, _
                                     bs As IBusinessServer, _
                                     NameChief As String, _
-                                    ValueChief As String) As String
+                                    ValueChief) As String
     RS.MoveFirst
     Do While Not RS.EOF
         If Nvl(CastToString(RS("chief_code").Value), "") = CastToString(NameChief) Then
-            ReturnChiefCustomValue = CastToString(RS(ValueChief).Value)
+            If CastToString(ValueChief) = "ffNPSurname" Then
+                ReturnChiefCustomValue = MakeFIOShortCorrectly(CastToString(RS("surname").Value), _
+                                                            CastToString(RS("name").Value), _
+                                                            CastToString(RS("patronymic").Value), _
+                                                            1, _
+                                                            ffNPSurname)
+            ElseIf CastToString(ValueChief) = "ffSurnameNamePatronomic" Then
+                ReturnChiefCustomValue = MakeFIOShortCorrectly(CastToString(RS("surname").Value), _
+                                                            CastToString(RS("name").Value), _
+                                                            CastToString(RS("patronymic").Value), _
+                                                            1, _
+                                                            ffSurnameNamePatronomic)
+            ElseIf CastToString(ValueChief) = "ffSurnameNP" Then
+                ReturnChiefCustomValue = MakeFIOShortCorrectly(CastToString(RS("surname").Value), _
+                                                            CastToString(RS("name").Value), _
+                                                            CastToString(RS("patronymic").Value), _
+                                                            1, _
+                                                            ffSurnameNP)
+            ElseIf Not Nvl(CastToString(RS(ValueChief).Value), "") = "" Then
+                ReturnChiefCustomValue = CastToString(RS(ValueChief).Value)
+            Else
+                ReturnChiefCustomValue = "Некорректный параметр"
+            End If
             RS.MoveLast
             RS.MoveNext
         Else
