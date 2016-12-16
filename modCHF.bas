@@ -2,31 +2,109 @@ Attribute VB_Name = "modCHF"
 Option Explicit
 Option Compare Text
 
-'last update 15.12.2016
+'last update 16.12.2016
+
+'----------Оператор перечисления в качестве переменных указаны параметры для функции Replace_DirectorPodr,
+'которая возвращает сведения о руководителе подразделения
+Public Enum ParamTypeDepartmentName
+    DepartmentShortName = 1
+    DepartmentFullName = 2
+    DepartmentChiefFIO = 3
+    DepartmentChiefPostShortName = 5
+End Enum
+
+'---------Оператор перечисления в качестве переменных зададим Падежи
+'бля.. хотел написать по-английски падежи, но ....
+Public Enum DifferentPadeg
+    Im = 1
+    Rod = 2
+    Dat = 3
+    Vin = 4
+    Tv = 5
+    Pr = 6
+End Enum
+
+'----------------Функция возвращает полное/краткое наименование подразделения ---------------------------
+Public Function ReturnChiefsDepartmentName(ByVal RS As ADODB.Recordset, SelectionParams As ParamTypeDepartmentName, Optional DepartmentPadeg As DifferentPadeg = Im) As String
+    If (SelectionParams >= 1 Or SelectionParams <= 2) Or (SelectionParams = 5) Then
+        If Not CastToString(CastToString(Replace_DirectorPodr(CastToLong(SelectionParams), RS("shtat_podr_info").Value))) = "Null" Then
+            ReturnChiefsDepartmentName = GetPodrPadeg(CastToString(Replace_DirectorPodr(CastToLong(SelectionParams), RS("shtat_podr_info").Value)), DepartmentPadeg)
+        End If
+    End If
+End Function
+
+'----------------Функция возвращает ФИО руководителя подразделения---------------------------
+Public Function ReturnChiefsDepartmentFIO(ByVal RS As ADODB.Recordset, Optional SelectionParams As FIOFormatEnum = ffSurnameNamePatronomic, Optional FIOPadeg As DifferentPadeg = Im) As String
+    If Not CastToString(Replace_DirectorPodr("3", RS("shtat_podr_info").Value)) = "Null" Then
+        Dim WrdArray3() As String
+        WrdArray3() = Split(CastToString(Replace_DirectorPodr("3", RS("shtat_podr_info").Value)), " ")
+        ReturnChiefsDepartmentFIO = MakeFIOShortCorrectly(CastToString(WrdArray3(0)), CastToString(WrdArray3(1)), CastToString(WrdArray3(2), ""), FIOPadeg, SelectionParams)
+    End If
+End Function
+
+'---------------Функция возвращает либо ФИО руководителя, либо Должность руководителя организации,
+'которого нет в штате. Данные извлекаются из опций.
+'Функция реагирует на параметры:
+'    ffNPSurname, ffSurnameNamePatronomic, ffSurnameNP = вернет ФИО в разных форматах
+'    Post = вернет должность
+Public Function ReturnGeneralChief(FieldsValue As String, bs As IBusinessServer) As String
+
+    If CastToString(FieldsValue) = "ffNPSurname" Then
+        If Not CastToString(bs.GetOption("ORG_STRUCTURE_BOSS_FIO", 0)) = "" Then
+            ReturnGeneralChief = MakeFIOShortOneString(CastToString(bs.GetOption("ORG_STRUCTURE_BOSS_FIO", 0)), 1, ffNPSurname)
+        Else
+            ReturnGeneralChief = CastToString(bs.GetOption("ORG_STRUCTURE_BOSS_FIO", 4))
+        End If
+    ElseIf CastToString(FieldsValue) = "ffSurnameNamePatronomic" Then
+        If Not CastToString(bs.GetOption("ORG_STRUCTURE_BOSS_FIO", 0)) = "" Then
+            ReturnGeneralChief = MakeFIOShortOneString(CastToString(bs.GetOption("ORG_STRUCTURE_BOSS_FIO", 0)), 1, ffSurnameNamePatronomic)
+        Else
+            ReturnGeneralChief = CastToString(bs.GetOption("ORG_STRUCTURE_BOSS_FIO", 4))
+        End If
+    ElseIf CastToString(FieldsValue) = "ffSurnameNP" Then
+        If Not CastToString(bs.GetOption("ORG_STRUCTURE_BOSS_FIO", 0)) = "" Then
+            ReturnGeneralChief = MakeFIOShortOneString(CastToString(bs.GetOption("ORG_STRUCTURE_BOSS_FIO", 0)), 1, ffSurnameNP)
+        Else
+            ReturnGeneralChief = CastToString(bs.GetOption("ORG_STRUCTURE_BOSS_FIO", 4))
+        End If
+    ElseIf CastToString(FieldsValue) = "Post" Then
+        If Not CastToString(bs.GetOption("ORG_STRUCTURE_BOSS_POST", 0)) = "" Then
+        ReturnGeneralChief = GetPostPadeg(CastToString(bs.GetOption("ORG_STRUCTURE_BOSS_POST", 0)), 1)
+        Else
+            ReturnGeneralChief = CastToString(bs.GetOption("ORG_STRUCTURE_BOSS_POST", 4))
+        End If
+    End If
+End Function
 
 'Функция ничего не возвращает. Она пробегает по Закладкам, которые определены для Руководителей которые должны
 'подписывать документ
+'вызывается вот так: Call FieldRecordingChiefs(параметры)
 Public Function FieldRecordingChiefs(ByVal FRC_RS As ADODB.Recordset, _
                                     FRC_QueryDate As Date, _
                                     FRC_bs As IBusinessServer)
     Dim NameFieldChief As String, ValueFieldChief As String, WriteString As String
     Dim TempString As String
-    Dim Set1 As Bookmark
+    Dim Set1 As bookmark
     'берем все закладки страницы
     ActiveDocument.Range.InsertAfter (vbCrLf)
-    For Each Set1 In ActiveDocument.Bookmarks
+    For Each Set1 In ActiveDocument.bookmarks
         'если закладка существует
-        If ActiveDocument.Bookmarks.Exists(Set1.Name) = True Then
+        If ActiveDocument.bookmarks.Exists(Set1.Name) = True Then
             'извлекаем имя кода
             NameFieldChief = DeleteCharacters(Set1.Name, True)
             'извлекаем имя поля
             ValueFieldChief = DeleteCharacters(Set1.Name, False)
             'получаем результат
-            WriteString = CastToString(ReturnChiefCustomValue(FRC_RS, FRC_QueryDate, FRC_bs, NameFieldChief, ValueFieldChief))
-            If Not CastToString(WriteString, "") = "" Then
-                PutToBkm CastToString(Set1.Name), CastToString(WriteString)
+            If CastToString(NameFieldChief) = "Управляющий" Then
+                PutToBkm CastToString(Set1.Name), CastToString(ReturnGeneralChief(ValueFieldChief, FRC_bs))
             Else
-                PutToBkm CastToString(Set1.Name), CastToString("Некорректный параметр")
+                WriteString = CastToString(ReturnChiefCustomValue(FRC_RS, FRC_QueryDate, FRC_bs, NameFieldChief, ValueFieldChief))
+                If Not CastToString(WriteString, "") = "" Then
+                    PutToBkm CastToString(Set1.Name), CastToString(WriteString)
+                'Не понятно как использовать исключение
+                'Else
+                '    PutToBkm CastToString(Set1.Name), CastToString("Некорректный параметр")
+                End If
             End If
         End If
     Next
@@ -216,7 +294,7 @@ Public Function RekvFirm(NameBookMark As String, _
         PutToBkm NameBookMark, TextFirm
         RekvFirm = 1
     Else
-        ActiveDocument.Bookmarks(NameBookMark).Select
+        ActiveDocument.bookmarks(NameBookMark).Select
         Selection.Font.ColorIndex = wdRed
         PutToBkm NameBookMark, CastToString("В карточке организации не заполнене реквизит" & NameBookMark)
     End If
@@ -594,10 +672,13 @@ End Function
 '-------------------форматирование строки с дректором подразделения по штатной единице сотрудника--------------
 Public Function getDirectorPodrAndFIO(shtat_podr_info As String)
     Dim FIOArray() As String
-FIOArray = Split(CastToString(Replace_DirectorPodr(3, shtat_podr_info)))
-ReDim Preserve FIOArray(4)
-FIOArray(4) = Replace_DirectorPodr(5, shtat_podr_info)
-getDirectorPodrAndFIO = FIOArray
+    'Извлекаем ФИО руководителя
+    FIOArray = Split(CastToString(Replace_DirectorPodr(3, shtat_podr_info)))
+    'Расширяем массив до трех элементов с сохранением содержимого
+    ReDim Preserve FIOArray(4)
+    'Извлекаем наименование должности
+    FIOArray(4) = Replace_DirectorPodr(5, shtat_podr_info)
+    getDirectorPodrAndFIO = FIOArray
 End Function
 
 '-------------------получение ФИО директора структурного подразделения-------------------
@@ -624,8 +705,8 @@ End Function
 Public Function getDirectiorPodrPodr(shtat_podr_info As String, Optional soglDolgn As String = "")
     Dim directorPodrData() As String
     directorPodrData = getDirectorPodrAndFIO(shtat_podr_info)
-    If Not CastToString(directorPodrData) = "" Then
-    getDirectiorPodrPodr = directorPodrData(4)
+    If Not CastToString(directorPodrData(4)) = "" Then
+        getDirectiorPodrPodr = directorPodrData(4)
     Else
         getDirectiorPodrPodr = soglDolgn
     End If
