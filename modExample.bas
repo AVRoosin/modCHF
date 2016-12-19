@@ -1,4 +1,17 @@
 Attribute VB_Name = "modExample"
+'Last update Fidel on 19/12/2016
+
+'    'паспорт
+'    Dim tmpS As String
+'    tmpS = ReturnPersonalPasport(CastToLong(DataRS("id").Value), DataRS, qDate, bs)
+'    If Not CastToString(tmpS) = "" Then
+'        PutToBkm "pasport", CastToString(tmpS)
+'    Else
+'        ActiveDocument.Bookmarks("pasport").Select
+'        Selection.Font.ColorIndex = wdRed
+'        PutToBkm "pasport", CastToString("В карточке сотрудника не указан паспорт")
+'    End If
+
 '    'дата приказа
 '    Dim qDate As Date
 '    qDate = CastToDate(MainRS("date_begin").Value)
