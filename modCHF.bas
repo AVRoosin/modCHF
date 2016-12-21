@@ -362,8 +362,12 @@ Public Function GetDateString(dateValue As Date)
 End Function
 
 'Функция снижает регистр первого символа строки
-Public Function LCaseString(AllString As String)
-    LCaseString = LCase(Left(AllString, 1)) & Right(AllString, Len(AllString) - 1)
+Public Function LCaseString(AllString As String, Optional DefaulString As String = "")
+    If Not CStr(AllString) = "" And Not CStr(AllString) = "Null" Then
+        LCaseString = LCase(Left(AllString, 1)) & Right(AllString, Len(AllString) - 1)
+    Else
+        LCaseString = DefaulString
+    End If
 End Function
 
 'Возвращаемое значение - обрезанное название штатно единицы - "Начальник"
@@ -659,7 +663,7 @@ Public Function Replace_DirectorPodr(NumbOption As Integer, NameOption As String
                 WrdArray2() = Split(WrdArray1(NumbOption), "=")
             End If
         Next i
-        If Not CastToString(WrdArray2(1)) = "''" Or Not CastToString(WrdArray2(1)) = "Null" Then
+        If Not CastToString(WrdArray2(1)) = "''" And Not CastToString(WrdArray2(1)) = "Null" Then
             Replace_DirectorPodr = CastToString(Replace(WrdArray2(1), "'", ""))
         Else
             Replace_DirectorPodr = "Null"
