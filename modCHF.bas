@@ -2,7 +2,7 @@ Attribute VB_Name = "modCHF"
 Option Explicit
 Option Compare Text
 
-'last update 16.12.2016
+'last update 28.12.2016
 
 '----------Оператор перечисления в качестве переменных указаны параметры для функции Replace_DirectorPodr,
 'которая возвращает сведения о руководителе подразделения
@@ -84,26 +84,42 @@ Public Function FieldRecordingChiefs(ByVal FRC_RS As ADODB.Recordset, _
                                     FRC_bs As IBusinessServer)
     Dim NameFieldChief As String, ValueFieldChief As String, WriteString As String
     Dim TempString As String
-    Dim Set1 As bookmark
+    Dim Set1 As bookmark, LastSymbol As Long
     'берем все закладки страницы
     ActiveDocument.Range.InsertAfter (vbCrLf)
-    For Each Set1 In ActiveDocument.bookmarks
+    For Each Set1 In ActiveDocument.Bookmarks
         'если закладка существует
-        If ActiveDocument.bookmarks.Exists(Set1.Name) = True Then
+        If ActiveDocument.Bookmarks.Exists(Set1.Name) = True Then
             'извлекаем имя кода
             NameFieldChief = DeleteCharacters(Set1.Name, True)
             'извлекаем имя поля
             ValueFieldChief = DeleteCharacters(Set1.Name, False)
-            'получаем результат
-            If CastToString(NameFieldChief) = "Управляющий" Then
-                PutToBkm CastToString(Set1.Name), CastToString(ReturnGeneralChief(ValueFieldChief, FRC_bs))
-            Else
-                WriteString = CastToString(ReturnChiefCustomValue(FRC_RS, FRC_QueryDate, FRC_bs, NameFieldChief, ValueFieldChief))
-                If Not CastToString(WriteString, "") = "" Then
-                    PutToBkm CastToString(Set1.Name), CastToString(WriteString)
-                'Не понятно как использовать исключение
-                'Else
-                '    PutToBkm CastToString(Set1.Name), CastToString("Некорректный параметр")
+            
+            'Проверяем, чтобы оба значения не были пустыми
+            If (Not Nvl(NameFieldChief, "") = "") And (Not Nvl(ValueFieldChief, "") = "") Then
+                
+                'Проверяем, если вконце строки имеется число,
+                'то это дублирование строки параметров
+                If IsNumeric(CStr(Right(ValueFieldChief, 1))) Then
+                    LastSymbol = CInt(Right(ValueFieldChief, 1))
+                    If LastSymbol >= 0 Then
+                        TempString = Trim(ValueFieldChief)
+                        ValueFieldChief = ""
+                        ValueFieldChief = Left(TempString, Len(TempString) - 1)
+                    End If
+                End If
+                
+                'получаем результат
+                If CastToString(NameFieldChief) = "Управляющий" Then
+                    PutToBkm CastToString(Set1.Name), CastToString(ReturnGeneralChief(ValueFieldChief, FRC_bs))
+                Else
+                    WriteString = CastToString(ReturnChiefCustomValue(FRC_RS, FRC_QueryDate, FRC_bs, NameFieldChief, ValueFieldChief))
+                    If Not CastToString(WriteString, "") = "" Then
+                        PutToBkm CastToString(Set1.Name), CastToString(WriteString)
+                    'Не понятно как использовать исключение
+                    'Else
+                    '    PutToBkm CastToString(Set1.Name), CastToString("Некорректный параметр")
+                    End If
                 End If
             End If
         End If
@@ -294,7 +310,7 @@ Public Function RekvFirm(NameBookMark As String, _
         PutToBkm NameBookMark, TextFirm
         RekvFirm = 1
     Else
-        ActiveDocument.bookmarks(NameBookMark).Select
+        ActiveDocument.Bookmarks(NameBookMark).Select
         Selection.Font.ColorIndex = wdRed
         PutToBkm NameBookMark, CastToString("В карточке организации не заполнене реквизит" & NameBookMark)
     End If
@@ -362,12 +378,8 @@ Public Function GetDateString(dateValue As Date)
 End Function
 
 'Функция снижает регистр первого символа строки
-Public Function LCaseString(AllString As String, Optional DefaulString As String = "")
-    If Not CStr(AllString) = "" And Not CStr(AllString) = "Null" Then
-        LCaseString = LCase(Left(AllString, 1)) & Right(AllString, Len(AllString) - 1)
-    Else
-        LCaseString = DefaulString
-    End If
+Public Function LCaseString(AllString As String)
+    LCaseString = LCase(Left(AllString, 1)) & Right(AllString, Len(AllString) - 1)
 End Function
 
 'Возвращаемое значение - обрезанное название штатно единицы - "Начальник"
@@ -663,7 +675,7 @@ Public Function Replace_DirectorPodr(NumbOption As Integer, NameOption As String
                 WrdArray2() = Split(WrdArray1(NumbOption), "=")
             End If
         Next i
-        If Not CastToString(WrdArray2(1)) = "''" And Not CastToString(WrdArray2(1)) = "Null" Then
+        If Not CastToString(WrdArray2(1)) = "''" Or Not CastToString(WrdArray2(1)) = "Null" Then
             Replace_DirectorPodr = CastToString(Replace(WrdArray2(1), "'", ""))
         Else
             Replace_DirectorPodr = "Null"
