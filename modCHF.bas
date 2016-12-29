@@ -2,6 +2,8 @@ Attribute VB_Name = "modCHF"
 Option Explicit
 Option Compare Text
 
+'last update 29.12.2016 - Added modified function - DetailedGetInfoIdToValue
+'                         Added operator enum - SortingMethod
 'last update 28.12.2016
 
 '----------Оператор перечисления в качестве переменных указаны параметры для функции Replace_DirectorPodr,
@@ -14,7 +16,7 @@ Public Enum ParamTypeDepartmentName
 End Enum
 
 '---------Оператор перечисления в качестве переменных зададим Падежи
-'бля.. хотел написать по-английски падежи, но ....
+'хотел написать по-английски падежи, но ....
 Public Enum DifferentPadeg
     Im = 1
     Rod = 2
@@ -22,6 +24,12 @@ Public Enum DifferentPadeg
     Vin = 4
     Tv = 5
     Pr = 6
+End Enum
+
+'---------Оператор способа сортировки
+Public Enum SortingMethod
+    desc
+    Asc
 End Enum
 
 '----------------Функция возвращает полное/краткое наименование подразделения ---------------------------
@@ -487,6 +495,67 @@ Public Function GetInfoIdToValue(ItemId As Long, ItemBsObject As String, ItemPar
     End If
 
      GetInfoIdToValue = TempString
+End Function
+
+'---------------------------Усложненная функция для получения произвольного реквизита по ID----------------------------
+'Возникла потребность измвлекать данные из реквизитов извлечением последнего значения с предварительной сортировкой
+'Добавил два поля
+' SortBy - если поле не пустое, то по нему производится сортировка, обычно это поле date_begin или date_end
+' SortingMethod - принимает два значения: desc - по убыванию, asc - по возрастанию (используется по умолчанию)
+Public Function DetailedGetInfoIdToValue(bs As IBusinessServer, _
+                                        ItemId As Long, _
+                                        ItemBsObject As String, _
+                                        ItemPartObject As String, _
+                                        ItemValue As String, _
+                                        sQueryDate As Date, _
+                                        SortBy As String, _
+                                        Optional prefixSort As SortingMethod = desc, _
+                                        Optional SettingCondition As String = "", _
+                                        Optional VariableCondition As String = "")
+    'Функция возвращает строку по полю, части, объекту переданных в качестве параметра
+    'на дату по указанному id
+    Dim TempString As String
+    Dim bo_podr As IBSDataObject, rs_podr As SKBS.SKRecordset
+    Dim PodrParams As New Params
+
+    'добавляем параметры для получения объекта приложения
+    PodrParams.AddParam "id", ItemId
+    PodrParams.AddParam "QueryDate", sQueryDate
+
+    'получаем бизнес-объект
+    Set bo_podr = bs.GetBsObject(ItemBsObject, PodrParams)
+
+    'получаем нужную часть
+    Set rs_podr = bo_podr(ItemPartObject)
+    
+    'Добавим проверку на необходимость сортировки
+    If Not CStr(SortBy) = "" Then
+        If prefixSort = desc Then
+            rs_podr.Sort = CStr(SortBy & " desc")
+        ElseIf prefixSort = Asc Then
+            rs_podr.Sort = CStr(SortBy & " asc")
+        End If
+    End If
+
+    'проверяем, что в рекордсете есть записи (у сотрудника заданы
+    'паспортные данные на дату QDate), собираем нужные поля
+     If Not SettingCondition = "" And Not VariableCondition = "" Then
+        'Проверяем наличие строк
+        If rs_podr.RecordCount > 0 Then
+            'применяем фильтр
+            rs_podr.SetFilter SettingCondition & "=" & QuotedStr(VariableCondition)
+            'Вполне возможно, что после условия вообще не останется строк, делаем проверку
+            If rs_podr.RecordCount > 0 Then
+                TempString = CastToString(rs_podr(ItemValue).Value, "")
+            End If
+        End If
+    Else
+        If rs_podr.RecordCount > 0 Then
+            TempString = CastToString(rs_podr(ItemValue).Value, "")
+        End If
+    End If
+
+     DetailedGetInfoIdToValue = TempString
 End Function
 '-----------------Получение ФИО Испонителя из  текущей учётной записи---------------
 Public Function GetExecutorFIO(qDate As Date, bs As IBusinessServer)
