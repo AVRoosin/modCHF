@@ -2,6 +2,8 @@ Attribute VB_Name = "modCHF"
 Option Explicit
 Option Compare Text
 
+'last update 09.01.2017 - Function change - ReturnChiefsDepartmentFIO
+'                       - Function change - LCaseString
 'last update 29.12.2016 - Added modified function - DetailedGetInfoIdToValue
 '                         Added operator enum - SortingMethod
 'last update 28.12.2016
@@ -42,11 +44,13 @@ Public Function ReturnChiefsDepartmentName(ByVal RS As ADODB.Recordset, Selectio
 End Function
 
 '----------------Функция возвращает ФИО руководителя подразделения---------------------------
-Public Function ReturnChiefsDepartmentFIO(ByVal RS As ADODB.Recordset, Optional SelectionParams As FIOFormatEnum = ffSurnameNamePatronomic, Optional FIOPadeg As DifferentPadeg = Im) As String
+Public Function ReturnChiefsDepartmentFIO(ByVal RS As ADODB.Recordset, Optional SelectionParams As ParamCHiefsFormatStyle = ffSurnameNamePatronomic, Optional FIOPadeg As DifferentPadeg = Im) As String
     If Not CastToString(Replace_DirectorPodr("3", RS("shtat_podr_info").Value)) = "Null" Then
         Dim WrdArray3() As String
         WrdArray3() = Split(CastToString(Replace_DirectorPodr("3", RS("shtat_podr_info").Value)), " ")
-        ReturnChiefsDepartmentFIO = MakeFIOShortCorrectly(CastToString(WrdArray3(0)), CastToString(WrdArray3(1)), CastToString(WrdArray3(2), ""), FIOPadeg, SelectionParams)
+        If UBound(WrdArray3) = 2 Then
+            ReturnChiefsDepartmentFIO = MakeFIOShortCorrectly(CastToString(WrdArray3(0)), CastToString(WrdArray3(1)), CastToString(WrdArray3(2), ""), FIOPadeg, SelectionParams)
+        End If
     End If
 End Function
 
@@ -385,9 +389,11 @@ Public Function GetDateString(dateValue As Date)
   GetDateString = CastToString(DatePart("d", dateValue)) & " " & Months(Month(dateValue)) & " " & Year(dateValue)
 End Function
 
-'Функция снижает регистр первого символа строки
+'-----------Функция снижает регистр первого символа строки
 Public Function LCaseString(AllString As String)
-    LCaseString = LCase(Left(AllString, 1)) & Right(AllString, Len(AllString) - 1)
+    If CStr(AllString) <> "" Then
+        LCaseString = LCase(Left(AllString, 1)) & Right(AllString, Len(AllString) - 1)
+    End If
 End Function
 
 'Возвращаемое значение - обрезанное название штатно единицы - "Начальник"
@@ -476,8 +482,7 @@ Public Function GetInfoIdToValue(ItemId As Long, ItemBsObject As String, ItemPar
     'получаем нужную часть
     Set rs_podr = bo_podr(ItemPartObject)
 
-    'проверяем, что в рекордсете есть записи (у сотрудника заданы
-    'паспортные данные на дату QDate), собираем нужные поля
+    'проверяем, что в рекордсете есть записи, собираем нужные поля
      If Not SettingCondition = "" And Not VariableCondition = "" Then
         'Проверяем наличие строк
         If rs_podr.RecordCount > 0 Then

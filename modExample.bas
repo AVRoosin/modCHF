@@ -1,5 +1,19 @@
 Attribute VB_Name = "modExample"
-'Last update Fidel on 19/12/2016
+'Last update Fidel on 09.01.2017
+
+'   'Должность руководителя в основании ПФ
+'    Dim ChiefFIO As String, ChiefNameExecPost As String
+'    ChiefFIO = MakeFIOShortOneString(CastToString(ReturnChiefCustomValue(HeaderRS, qDate, bs, "ДирУпрПерс", "ffSurnameNamePatronomic")), 2, ffSurnameNamePatronomic)
+'    ChiefNameExecPost = GetPostPadeg(CastToString(ReturnChiefCustomValue(HeaderRS, qDate, bs, "ДирУпрПерс", "chief_fullname")), 2)
+'    'должность ДирУпрПерс в основании
+'    If Not IsNull(ChiefNameExecPost) Then
+'      PutToBkm "ChiefNameExecPost", CastToString(ChiefNameExecPost)
+'    End If
+'
+'    'ФИО ДирУпрПерс в основании
+'    If Not IsNull(ChiefFIO) Then
+'      PutToBkm "ChiefFIO", CastToString(ChiefFIO)
+'    End If
 
 '    'паспорт
 '    Dim tmpS As String
@@ -54,6 +68,10 @@ Attribute VB_Name = "modExample"
 '        Selection.Font.ColorIndex = wdRed
 '        PutToBkm "pasport", CastToString("В карточке сотрудника не указан паспорт")
 '    End If
+
+'    'Изменение слова в зависимости от числа, например, рубль/рубля/рублей
+'    ' Fix - отбрасывает дробную часть числа
+'    'gennumbercase(Fix(CastToDouble(DataRS("pay").Value)), "рубль", "рубля", "рублей")
 
 '    ' Компенсация
 '    If (Not IsNull(DataRS("pay").Value) And (CastToLong(DataRS("pay").Value)) > 0) Then
@@ -161,6 +179,62 @@ Attribute VB_Name = "modExample"
 '        Selection.Font.ColorIndex = wdRed
 '        PutToBkm "firm_INN", CastToString("В карточке организации не указан ИНН")
 '    End If
+
+' 'КПП компании
+'    Dim KppFirm As String
+'    KppFirm = GetInfoIdToValue(idFirm, "REC_FIRM", "INN", "charval2", qDate, bs)
+'    If Not Nvl(KppFirm, "") = "" Then
+'        PutToBkm "firm_KPP", KppFirm
+'    Else
+'        ActiveDocument.Bookmarks("firm_KPP").Select
+'        Selection.Font.ColorIndex = wdRed
+'        PutToBkm "firm_KPP", CastToString("В карточке организации не указан КПП")
+'    End If
+
+'        'БанковскСчет организации
+'        Dim NameBank As String
+'        NameBank = GetInfoIdToValue(idFirm, "REC_FIRM", "bank", "fullname", qDate, bs)
+'        If Not Nvl(NameBank, "") = "" Then
+'            PutToBkm "NameBank", NameBank
+'        Else
+'            ActiveDocument.Bookmarks("NameBank").Select
+'            Selection.Font.ColorIndex = wdRed
+'            PutToBkm "NameBank", CastToString("В карточке организации не банк")
+'        End If
+'
+'        'БанковскСчет организации
+'        Dim SchetFirm As String
+'        SchetFirm = GetInfoIdToValue(idFirm, "REC_FIRM", "bank", "charval", qDate, bs, "fullname", "Сберегательный банк РФ")
+'        If Not Nvl(SchetFirm, "") = "" Then
+'            PutToBkm "firm_schet", SchetFirm
+'        Else
+'            ActiveDocument.Bookmarks("firm_schet").Select
+'            Selection.Font.ColorIndex = wdRed
+'            PutToBkm "firm_schet", CastToString("В карточке организации не указан счет")
+'        End If
+'
+'         'Корреспондирующий счет организации
+'        Dim CorrespondingScore As String
+'        CorrespondingScore = GetInfoIdToValue(idFirm, "REC_FIRM", "bank", "charval", qDate, bs, "fullname", "Сберегательный банк РФ")
+'        If Not Nvl(CorrespondingScore, "") = "" Then
+'            PutToBkm "firm_CorrespondingScore", CorrespondingScore
+'        Else
+'            ActiveDocument.Bookmarks("firm_CorrespondingScore").Select
+'            Selection.Font.ColorIndex = wdRed
+'            PutToBkm "firm_CorrespondingScore", CastToString("В карточке организации не указан корреспондирующий счет")
+'        End If
+'
+'        'БИК организации
+'        Dim BikFirm As String
+'        BikFirm = GetInfoIdToValue(idFirm, "REC_FIRM", "bank", "code", qDate, bs)
+'        If Not Nvl(BikFirm, "") = "" Then
+'            PutToBkm "firm_BIK", BikFirm
+'        Else
+'            ActiveDocument.Bookmarks("firm_BIK").Select
+'            Selection.Font.ColorIndex = wdRed
+'            PutToBkm "firm_BIK", CastToString("В карточке организации не указан БИК")
+'        End If
+
 '  End If
 
 '    'Пример использования функции,
