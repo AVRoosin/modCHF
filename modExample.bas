@@ -1,5 +1,31 @@
 Attribute VB_Name = "modExample"
-'Last update Fidel on 09.01.2017
+
+'Last update Fidel on 10.01.2017
+
+'    'Руководитель структурного подразделения
+'    Dim FioChiefs As String, PostChiefs As String, PodrChiefs As String
+'    If Not IsNull(DataRS("SHTAT_PODR_INFO").Value) Then
+'        FioChiefs = CStr(ReturnChiefsDepartmentFIO(DataRS, ffSurnameNP, Rod))
+'        If FioChiefs <> "" Then
+'            PutToBkm "FioDirPodr", CStr(FioChiefs)
+'        Else
+'            PutToBkm "FioDirPodr", "[В карточке подразделения отсутствует руководитель]"
+'        End If
+'
+'        PostChiefs = CStr(ReturnChiefsDepartmentName(DataRS, DepartmentChiefPostShortName, Rod))
+'        If PostChiefs <> "" Then
+'            PutToBkm "ShtatDirPodr", LCaseString(CStr(PostChiefs))
+'        Else
+'            PutToBkm "ShtatDirPodr", "[В карточке подразделения отсутствует руководитель]"
+'        End If
+'
+'        PodrChiefs = CStr(ReturnChiefsDepartmentName(DataRS, DepartmentFullName, Rod))
+'        If PodrChiefs <> "" Then
+'            PutToBkm "PodrDirPodr", CStr(PodrChiefs)
+'        Else
+'            PutToBkm "PodrDirPodr", "[В карточке подразделения отсутствует руководитель]"
+'        End If
+'    End If
 
 '   'Должность руководителя в основании ПФ
 '    Dim ChiefFIO As String, ChiefNameExecPost As String

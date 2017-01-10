@@ -2,6 +2,7 @@ Attribute VB_Name = "modCHF"
 Option Explicit
 Option Compare Text
 
+'last update 10.01.2017 - Added modified function - Replace_OneStrDirectorPodr
 'last update 09.01.2017 - Function change - ReturnChiefsDepartmentFIO
 '                       - Function change - LCaseString
 'last update 29.12.2016 - Added modified function - DetailedGetInfoIdToValue
@@ -34,23 +35,80 @@ Public Enum SortingMethod
     Asc
 End Enum
 
+'-------------------получение строки с дbректором подразделения по штатной единице сотрудника--------------
+Public Function Replace_OneStrDirectorPodr(NumbOption As Integer, NameOption As String) As String
+    'Слитый реквизит - shtat_podr_info
+    '_0='Object_Code_charval=''01'';
+    'ShortName_charval='Название подразделения';
+    'fullname_charval='Полное название подразделения';
+    'Director_FIO_Personal='Фамилия Имя отчество';
+    'Director_intval=id_сотрудника;
+    'Podr_Director_ExecPost_Shtat_Shortname='Должность сотрудника';';
+    
+    If Not Nvl(CStr(NameOption), "") = "" Then
+        Dim WrdArray1() As String
+        Dim WrdArray2() As String
+        WrdArray1() = Split(CStr(NameOption), ";")
+        If UBound(WrdArray1) > 0 Then
+            WrdArray2() = Split(WrdArray1(NumbOption), "=")
+            If Not CStr(WrdArray2(1)) = "''" Or Not CStr(WrdArray2(1)) = "Null" Then
+                Replace_OneStrDirectorPodr = CStr(Replace(WrdArray2(1), "'", ""))
+            Else
+                Replace_OneStrDirectorPodr = "Null"
+            End If
+        End If
+    Else
+        Replace_OneStrDirectorPodr = "Null"
+    End If
+End Function
+
+
 '----------------Функция возвращает полное/краткое наименование подразделения ---------------------------
-Public Function ReturnChiefsDepartmentName(ByVal RS As ADODB.Recordset, SelectionParams As ParamTypeDepartmentName, Optional DepartmentPadeg As DifferentPadeg = Im) As String
+Public Function ReturnChiefsDepartmentName(ByVal rs As ADODB.Recordset, SelectionParams As ParamTypeDepartmentName, Optional DepartmentPadeg As DifferentPadeg = Im) As String
     If (SelectionParams >= 1 Or SelectionParams <= 2) Or (SelectionParams = 5) Then
-        If Not CastToString(CastToString(Replace_DirectorPodr(CastToLong(SelectionParams), RS("shtat_podr_info").Value))) = "Null" Then
-            ReturnChiefsDepartmentName = GetPodrPadeg(CastToString(Replace_DirectorPodr(CastToLong(SelectionParams), RS("shtat_podr_info").Value)), DepartmentPadeg)
+        If Not CastToString(CastToString(Replace_DirectorPodr(CastToLong(SelectionParams), rs("shtat_podr_info").Value))) = "Null" Then
+            ReturnChiefsDepartmentName = GetPodrPadeg(CastToString(Replace_DirectorPodr(CastToLong(SelectionParams), rs("shtat_podr_info").Value)), DepartmentPadeg)
         End If
     End If
 End Function
 
 '----------------Функция возвращает ФИО руководителя подразделения---------------------------
-Public Function ReturnChiefsDepartmentFIO(ByVal RS As ADODB.Recordset, Optional SelectionParams As ParamCHiefsFormatStyle = ffSurnameNamePatronomic, Optional FIOPadeg As DifferentPadeg = Im) As String
-    If Not CastToString(Replace_DirectorPodr("3", RS("shtat_podr_info").Value)) = "Null" Then
-        Dim WrdArray3() As String
-        WrdArray3() = Split(CastToString(Replace_DirectorPodr("3", RS("shtat_podr_info").Value)), " ")
+Public Function ReturnChiefsDepartmentFIO(ByVal rs As ADODB.Recordset, Optional SelectionParams As FIOFormatEnum = ffSurnameNamePatronomic, Optional FIOPadeg As DifferentPadeg = Im) As String
+    If Not CastToString(Replace_DirectorPodr("3", rs("shtat_podr_info").Value)) = "Null" Then
+    'Проверка, возможна ситуация когда у нас несколько вложенных подразделений
+    'будем пробегать все по цепочке снизу-вверх
+    Dim PodrArray() As String, AllStringArray() As String, i As Integer, CountStringPodr As Integer, TempString As String
+    Dim WrdArray3() As String
+    AllStringArray() = Split(CastToString(rs("shtat_podr_info").Value), ";")
+    TempString = ""
+    CountStringPodr = -1
+    ReDim Preserve PodrArray(0)
+    For i = 0 To UBound(AllStringArray)
+        If (i Mod 7) = 0 Then
+            CountStringPodr = CountStringPodr + 1
+            If CStr(AllStringArray(i)) <> "" Then
+                ReDim Preserve PodrArray(CountStringPodr)
+                PodrArray(CountStringPodr) = AllStringArray(i)
+            End If
+        Else
+            If CStr(AllStringArray(i)) <> "" Then
+                PodrArray(CountStringPodr) = PodrArray(CountStringPodr) & ";" & AllStringArray(i)
+            End If
+        End If
+    Next i
+    'На выходе получим массив строк содержащий сведения о вышестоящем подразделении
+    
+    i = 0
+    Do While Not i > UBound(PodrArray)
+        Erase WrdArray3
+'        'WrdArray3() = Split(CastToString(Replace_DirectorPodr("3", rs("shtat_podr_info").Value)), " ")
+        WrdArray3() = Split(CastToString(Replace_OneStrDirectorPodr("3", PodrArray(i))), " ")
         If UBound(WrdArray3) = 2 Then
             ReturnChiefsDepartmentFIO = MakeFIOShortCorrectly(CastToString(WrdArray3(0)), CastToString(WrdArray3(1)), CastToString(WrdArray3(2), ""), FIOPadeg, SelectionParams)
+            Exit Do
         End If
+        i = i + 1
+    Loop
     End If
 End Function
 
@@ -160,7 +218,7 @@ End Function
 'Функция возвращает паспорт сотрудника свернутый в строку формата серия/номер/кем выдан/когда выдан
 'в случае чего можно будет добавить формат
 Public Function ReturnPersonalPasport(IdPersonal As Long, _
-                                    ByVal RS As ADODB.Recordset, _
+                                    ByVal rs As ADODB.Recordset, _
                                     QueryDate As Date, _
                                     bs As IBusinessServer, _
                                     Optional StyleFormat As Integer = 1) As String
@@ -185,46 +243,46 @@ Public Function ReturnPersonalPasport(IdPersonal As Long, _
 End Function
 
 '------------------Функция возращает единичное значение по коду Chief, например, вернет Фамилия, Имя
-Public Function ReturnChiefCustomValue(ByVal RS As ADODB.Recordset, _
+Public Function ReturnChiefCustomValue(ByVal rs As ADODB.Recordset, _
                                     QueryDate As Date, _
                                     bs As IBusinessServer, _
                                     NameChief As String, _
                                     ValueChief) As String
-    RS.MoveFirst
-    Do While Not RS.EOF
-        If Nvl(CastToString(RS("chief_code").Value), "") = CastToString(NameChief) Then
+    rs.MoveFirst
+    Do While Not rs.EOF
+        If Nvl(CastToString(rs("chief_code").Value), "") = CastToString(NameChief) Then
             If CastToString(ValueChief) = "ffNPSurname" Then
-                ReturnChiefCustomValue = MakeFIOShortCorrectly(CastToString(RS("surname").Value), _
-                                                            CastToString(RS("name").Value), _
-                                                            CastToString(RS("patronymic").Value), _
+                ReturnChiefCustomValue = MakeFIOShortCorrectly(CastToString(rs("surname").Value), _
+                                                            CastToString(rs("name").Value), _
+                                                            CastToString(rs("patronymic").Value), _
                                                             1, _
                                                             ffNPSurname)
             ElseIf CastToString(ValueChief) = "ffSurnameNamePatronomic" Then
-                ReturnChiefCustomValue = MakeFIOShortCorrectly(CastToString(RS("surname").Value), _
-                                                            CastToString(RS("name").Value), _
-                                                            CastToString(RS("patronymic").Value), _
+                ReturnChiefCustomValue = MakeFIOShortCorrectly(CastToString(rs("surname").Value), _
+                                                            CastToString(rs("name").Value), _
+                                                            CastToString(rs("patronymic").Value), _
                                                             1, _
                                                             ffSurnameNamePatronomic)
             ElseIf CastToString(ValueChief) = "ffSurnameNP" Then
-                ReturnChiefCustomValue = MakeFIOShortCorrectly(CastToString(RS("surname").Value), _
-                                                            CastToString(RS("name").Value), _
-                                                            CastToString(RS("patronymic").Value), _
+                ReturnChiefCustomValue = MakeFIOShortCorrectly(CastToString(rs("surname").Value), _
+                                                            CastToString(rs("name").Value), _
+                                                            CastToString(rs("patronymic").Value), _
                                                             1, _
                                                             ffSurnameNP)
-            ElseIf Not Nvl(CastToString(RS(ValueChief).Value), "") = "" Then
-                ReturnChiefCustomValue = CastToString(RS(ValueChief).Value)
+            ElseIf Not Nvl(CastToString(rs(ValueChief).Value), "") = "" Then
+                ReturnChiefCustomValue = CastToString(rs(ValueChief).Value)
             Else
                 ReturnChiefCustomValue = "Некорректный параметр"
             End If
-            RS.MoveLast
-            RS.MoveNext
+            rs.MoveLast
+            rs.MoveNext
         Else
-            RS.MoveNext
+            rs.MoveNext
         End If
     Loop
 End Function
 
-Public Function InformationEmployee(ByVal RS As ADODB.Recordset, QueryDate As Date, bs As IBusinessServer, TransmissionString As String, _
+Public Function InformationEmployee(ByVal rs As ADODB.Recordset, QueryDate As Date, bs As IBusinessServer, TransmissionString As String, _
                                     Optional idPers As Boolean = False, _
                                     Optional Tabn As Boolean = False, _
                                     Optional SurnameName As Boolean = False, _
@@ -239,69 +297,69 @@ Public Function InformationEmployee(ByVal RS As ADODB.Recordset, QueryDate As Da
     'перебираем рекордсет руководителей
     Dim Masv() As String
     Dim idPodr As Long, CountMasv As Integer
-    RS.MoveFirst
+    rs.MoveFirst
     CountMasv = 0
-    Do While Not RS.EOF
-        If Nvl(CastToString(RS("chief_code").Value), "") = CastToString(TransmissionString) Then
+    Do While Not rs.EOF
+        If Nvl(CastToString(rs("chief_code").Value), "") = CastToString(TransmissionString) Then
             If idPers = True Then
                 ReDim Preserve Masv(CountMasv)
-                Masv(CountMasv) = CastToString(RS("id_personal").Value, "")
+                Masv(CountMasv) = CastToString(rs("id_personal").Value, "")
                 CountMasv = CountMasv + 1
             End If
             If Tabn = True Then
                 ReDim Preserve Masv(CountMasv)
-                Masv(CountMasv) = CastToString(RS("tabn").Value, "")
+                Masv(CountMasv) = CastToString(rs("tabn").Value, "")
                 CountMasv = CountMasv + 1
             End If
             If SurnameName = True Then
                 ReDim Preserve Masv(CountMasv)
-                Masv(CountMasv) = CastToString(RS("surname").Value, "")
+                Masv(CountMasv) = CastToString(rs("surname").Value, "")
                 CountMasv = CountMasv + 1
             End If
             If Name = True Then
                 ReDim Preserve Masv(CountMasv)
-                Masv(CountMasv) = CastToString(RS("name").Value, "")
+                Masv(CountMasv) = CastToString(rs("name").Value, "")
                 CountMasv = CountMasv + 1
             End If
             If Patronomyc = True Then
                 ReDim Preserve Masv(CountMasv)
-                Masv(CountMasv) = CastToString(RS("patronymic").Value, "")
+                Masv(CountMasv) = CastToString(rs("patronymic").Value, "")
                 CountMasv = CountMasv + 1
             End If
             If idShtat = True Then
                 ReDim Preserve Masv(CountMasv)
-                Masv(CountMasv) = CastToString(RS("id_shtat").Value, "")
+                Masv(CountMasv) = CastToString(rs("id_shtat").Value, "")
                 CountMasv = CountMasv + 1
             End If
             If ShtatCode = True Then
                 ReDim Preserve Masv(CountMasv)
-                Masv(CountMasv) = CastToString(RS("shtat_code").Value, "")
+                Masv(CountMasv) = CastToString(rs("shtat_code").Value, "")
                 CountMasv = CountMasv + 1
             End If
             If ShtatShorname = True Then
                 ReDim Masv(CountMasv)
-                Masv(CountMasv) = CastToString(RS("shtat_shortname").Value, "")
+                Masv(CountMasv) = CastToString(rs("shtat_shortname").Value, "")
                 CountMasv = CountMasv + 1
             End If
             If ShtatFullname = True Then
                 ReDim Preserve Masv(CountMasv)
-                Masv(CountMasv) = CastToString(GetInfoIdToValue(CastToLong(RS("id_shtat").Value), "REC_SHTAT", "fullname", "charval", QueryDate, bs))
+                Masv(CountMasv) = CastToString(GetInfoIdToValue(CastToLong(rs("id_shtat").Value), "REC_SHTAT", "fullname", "charval", QueryDate, bs))
                 CountMasv = CountMasv + 1
             End If
             If PodrFullname = True Then
                 ReDim Masv(CountMasv)
-                idPodr = CastToLong(GetInfoIdToValue(CastToLong(RS("id_shtat").Value), "REC_SHTAT", "parent_object", "intval", QueryDate, bs))
+                idPodr = CastToLong(GetInfoIdToValue(CastToLong(rs("id_shtat").Value), "REC_SHTAT", "parent_object", "intval", QueryDate, bs))
                 Masv(CountMasv) = CastToString(GetInfoIdToValue(CastToLong(idPodr), "REC_PODR", "fullname", "charval", QueryDate, bs))
                 CountMasv = CountMasv + 1
             End If
             If ChiefFullname = True Then
                 ReDim Preserve Masv(CountMasv)
-                Masv(CountMasv) = CastToString(RS("chief_fullname").Value, "")
+                Masv(CountMasv) = CastToString(rs("chief_fullname").Value, "")
                 CountMasv = CountMasv + 1
             End If
             Exit Do
          End If
-        RS.MoveNext
+        rs.MoveNext
     Loop
     InformationEmployee = Masv()
 End Function
